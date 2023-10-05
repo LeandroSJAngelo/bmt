@@ -17,7 +17,7 @@ public class SchedulerController {
     @Autowired
     private ShipRepository repository;
 
-    @PostMapping
+    @PostMapping("/start")
     @Transactional
     public void extract(@RequestBody FirstAccess url) throws Exception {
         List<VoyageDetail> voyageDetails = new SealandBot().extractSchedules(url.url());
