@@ -3,27 +3,29 @@ package bmt.com.api.models;
 import jakarta.persistence.*;
 import lombok.*;
 
-@Table(name = "voyage_details")
-@Entity(name = "voyage_details")
+import java.time.LocalDate;
+
+@Table
+@Entity(name = "scheduler")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(of = "id")
-public class VoyageDetail {
+public class SchedulerDetail {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private String departureData;
+    private LocalDate departureData;
     private String departureLocal;
-    private String arrivalData;
+    private LocalDate arrivalData;
     private String arrivalLocal;
     private String voyage;
     private String vesselVoyage;
-    private String containerGateIn;
-    private String shippingInstructions;
-    private String shippingInstructionsAms;
-    private String verifiedGrossMass;
+    private LocalDate containerGateIn;
+    private LocalDate shippingInstructions;
+    private LocalDate shippingInstructionsAms;
+    private LocalDate verifiedGrossMass;
     private String imoNumber;
     private String callSign;
     private String vesselVoyageCode;

@@ -7,12 +7,15 @@ import com.google.gson.JsonParser;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
 public class SealandBot {
 
-    public List<VoyageDetail> extractSchedules(String url)
+    public List<SchedulerDetail> extractSchedules(String url)
             throws Exception
     {
         Connection.Response doc = Jsoup
@@ -21,50 +24,62 @@ public class SealandBot {
                 .execute();
 
         JsonObject js       = (JsonObject) JsonParser.parseString(doc.body());
-        JsonArray schedules = js.get("products").getAsJsonArray().get(0).getAsJsonObject().get("schedules").getAsJsonArray();
-        List<VoyageDetail> voyageDetails = new ArrayList<>();
+        JsonArray products  = js.get("products").getAsJsonArray();
+        List<SchedulerDetail> schedulerDetails = new ArrayList<>();
 
-        for(JsonElement aux : schedules)
+        for(JsonElement jsa : products)
         {
-            String departureDate    = aux.getAsJsonObject().get("fromLocation").getAsJsonObject().get("date").getAsString();
-            String departureLocal   = aux.getAsJsonObject().get("fromLocation").getAsJsonObject().get("siteGeoId").getAsString();
-            String arrivalData      = aux.getAsJsonObject().get("toLocation").getAsJsonObject().get("date").getAsString();
-            String arrivalLocal     = aux.getAsJsonObject().get("toLocation").getAsJsonObject().get("siteGeoId").getAsString();
-            String voyage           = aux.getAsJsonObject().get("scheduleDetails").getAsJsonArray().get(0).getAsJsonObject().get("transport").getAsJsonObject().get("voyageNumber").getAsString();
-            String vesselVoyage     = aux.getAsJsonObject().get("vessel").getAsJsonObject().get("name").getAsString();
-            String vesselVoyageCode = aux.getAsJsonObject().get("vessel").getAsJsonObject().get("code").getAsString();
+            JsonArray schedules = jsa.getAsJsonObject().get("schedules").getAsJsonArray();
+            for(JsonElement aux : schedules)
+            {
+                String departureDate    = aux.getAsJsonObject().get("fromLocation").getAsJsonObject().get("date").getAsString();
+                String departureLocal   = aux.getAsJsonObject().get("fromLocation").getAsJsonObject().get("siteGeoId").getAsString();
+                String arrivalData      = aux.getAsJsonObject().get("toLocation").getAsJsonObject().get("date").getAsString();
+                String arrivalLocal     = aux.getAsJsonObject().get("toLocation").getAsJsonObject().get("siteGeoId").getAsString();
+                String voyage           = aux.getAsJsonObject().get("scheduleDetails").getAsJsonArray().get(0).getAsJsonObject().get("transport").getAsJsonObject().get("voyageNumber").getAsString();
+                String vesselVoyage     = aux.getAsJsonObject().get("vessel").getAsJsonObject().get("name").getAsString();
+                String vesselVoyageCode = aux.getAsJsonObject().get("vessel").getAsJsonObject().get("code").getAsString();
 
-            VoyageDetail voyageDetail = VoyageDetail
-                    .builder()
-                    .departureData(departureDate)
-                    .departureLocal(departureLocal)
-                    .arrivalData(arrivalData)
-                    .arrivalLocal(arrivalLocal)
-                    .voyage(voyage)
-                    .vesselVoyage(vesselVoyage)
-                    .vesselVoyageCode(vesselVoyageCode)
-                    .build();
+                SchedulerDetail schedulerDetail = SchedulerDetail
+                        .builder()
+                        .departureData(parserDate(departureDate))
+                        .departureLocal(departureLocal)
+                        .arrivalData(parserDate(arrivalData))
+                        .arrivalLocal(arrivalLocal)
+                        .voyage(voyage)
+                        .vesselVoyage(vesselVoyage)
+                        .vesselVoyageCode(vesselVoyageCode)
+                        .build();
 
-            voyageDetails.add(voyageDetail);
+                schedulerDetails.add(schedulerDetail);
+            }
         }
 
-        return voyageDetails;
+        return schedulerDetails;
     }
 
-    public void parserInfos(List<VoyageDetail> voyageDetails)
+    private LocalDate parserDate(String date)
+    {
+        if(date.contains("T"))
+            return LocalDateTime.parse(date, DateTimeFormatter.ISO_LOCAL_DATE_TIME).toLocalDate();
+
+        return LocalDate.parse(date);
+    }
+
+    public void parserInfos(List<SchedulerDetail> schedulerDetails)
             throws Exception
     {
-        for(VoyageDetail voyageDetail : voyageDetails)
+        for(SchedulerDetail schedulerDetail : schedulerDetails)
         {
-            String facilityId = voyageDetail.getDepartureLocal();
-            setDepartureArrivalLocation(voyageDetail, voyageDetail.getDepartureLocal(), "departure");
-            setDepartureArrivalLocation(voyageDetail, voyageDetail.getArrivalLocal(), "arrival");
-            setVesselValues(voyageDetail);
-            setDeadLinesValues(voyageDetail, facilityId);
+            String facilityId = schedulerDetail.getDepartureLocal();
+            setDepartureArrivalLocation(schedulerDetail, schedulerDetail.getDepartureLocal(), "departure");
+            setDepartureArrivalLocation(schedulerDetail, schedulerDetail.getArrivalLocal(), "arrival");
+            setVesselValues(schedulerDetail);
+            setDeadLinesValues(schedulerDetail, facilityId);
         }
     }
 
-    private void setDeadLinesValues(VoyageDetail navio, String facilityId)
+    private void setDeadLinesValues(SchedulerDetail navio, String facilityId)
             throws Exception
     {
         String payload = "[{\"facilityId\":\""+facilityId+"\",\"vesselMaerskCode\":\""+navio.getVesselVoyageCode()+"\",\"voyageNumber\":\""+navio.getVoyage()+"\",\"deadlineGroupName\":\"DOCUMENTATION\"}]";
@@ -87,20 +102,20 @@ public class SealandBot {
             for(JsonElement aux1 : lines)
             {
                 switch (aux1.getAsJsonObject().get("deadlineCode").getAsString()){
-                    case "SINONAMS" : navio.setShippingInstructions(aux1.getAsJsonObject().get("deadline").getAsString());
+                    case "SINONAMS" : navio.setShippingInstructions(parserDate(aux1.getAsJsonObject().get("deadline").getAsString()));
                         break;
-                    case "SGIN"     : navio.setContainerGateIn(aux1.getAsJsonObject().get("deadline").getAsString());
+                    case "SGIN"     : navio.setContainerGateIn(parserDate(aux1.getAsJsonObject().get("deadline").getAsString()));
                         break;
-                    case "VGM"      : navio.setVerifiedGrossMass(aux1.getAsJsonObject().get("deadline").getAsString());
+                    case "VGM"      : navio.setVerifiedGrossMass(parserDate(aux1.getAsJsonObject().get("deadline").getAsString()));
                         break;
-                    case "SIAMS"    : navio.setShippingInstructionsAms(aux1.getAsJsonObject().get("deadline").getAsString());
+                    case "SIAMS"    : navio.setShippingInstructionsAms(parserDate(aux1.getAsJsonObject().get("deadline").getAsString()));
                         break;
                 }
             }
         }
     }
 
-    private void setVesselValues(VoyageDetail navio)
+    private void setVesselValues(SchedulerDetail navio)
             throws Exception
     {
         Connection.Response res = Jsoup
@@ -113,7 +128,7 @@ public class SealandBot {
         navio.setCallSign(vessel.get(0).getAsJsonObject().get("callSign").getAsString());
     }
 
-    private void setDepartureArrivalLocation(VoyageDetail navio, String location, String type)
+    private void setDepartureArrivalLocation(SchedulerDetail navio, String location, String type)
             throws Exception
     {
         Connection.Response res = Jsoup

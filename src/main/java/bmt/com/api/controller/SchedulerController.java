@@ -15,20 +15,20 @@ import java.util.List;
 public class SchedulerController {
 
     @Autowired
-    private ShipRepository repository;
+    private SchedulerRepository repository;
 
     @PostMapping("/start")
     @Transactional
     public void extract(@RequestBody FirstAccess url) throws Exception {
-        List<VoyageDetail> voyageDetails = new SealandBot().extractSchedules(url.url());
-        new SealandBot().parserInfos(voyageDetails);
-        for(VoyageDetail voyageDetail : voyageDetails){
-            repository.save(voyageDetail);
+        List<SchedulerDetail> schedulerDetails = new SealandBot().extractSchedules(url.url());
+        new SealandBot().parserInfos(schedulerDetails);
+        for(SchedulerDetail schedulerDetail : schedulerDetails){
+            repository.save(schedulerDetail);
         }
     }
 
     @GetMapping("/search")
-    public Page<VoyageDetail> list(@RequestParam(required = false) String param, @PageableDefault(size = 10) Pageable pages){
+    public Page<SchedulerDetail> list(@RequestParam(required = false) String param, @PageableDefault(size = 10) Pageable pages){
         return repository.findByGenericParam(param, pages);
     }
 }
